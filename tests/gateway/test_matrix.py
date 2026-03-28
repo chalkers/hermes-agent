@@ -539,6 +539,9 @@ class TestMatrixE2EEMaintenance:
         adapter._encryption = True
         adapter._closing = False
 
+        class FakeSyncError:
+            pass
+
         async def _sync_once(timeout=30000):
             adapter._closing = True
             return MagicMock()
@@ -559,7 +562,11 @@ class TestMatrixE2EEMaintenance:
 
         adapter._client = fake_client
 
-        await adapter._sync_loop()
+        fake_nio = MagicMock()
+        fake_nio.SyncError = FakeSyncError
+
+        with patch.dict("sys.modules", {"nio": fake_nio}):
+            await adapter._sync_loop()
 
         fake_client.sync.assert_awaited_once_with(timeout=30000)
         fake_client.send_to_device_messages.assert_awaited_once()
@@ -568,6 +575,35 @@ class TestMatrixE2EEMaintenance:
         fake_client.keys_claim.assert_awaited_once_with(
             {"@alice:example.org": ["DEVICE1"]}
         )
+
+    @pytest.mark.asyncio
+    async def test_sync_loop_skips_e2ee_maintenance_on_sync_error(self):
+        adapter = _make_adapter()
+        adapter._encryption = True
+        adapter._closing = False
+        adapter._run_e2ee_maintenance = AsyncMock()
+
+        class FakeSyncError:
+            def __init__(self, message):
+                self.message = message
+
+        fake_client = MagicMock()
+        fake_client.sync = AsyncMock(return_value=FakeSyncError("temporary failure"))
+        adapter._client = fake_client
+
+        fake_nio = MagicMock()
+        fake_nio.SyncError = FakeSyncError
+
+        async def _sleep_once(_seconds):
+            adapter._closing = True
+
+        with patch.dict("sys.modules", {"nio": fake_nio}):
+            with patch("gateway.platforms.matrix.asyncio.sleep", AsyncMock(side_effect=_sleep_once)) as sleep_mock:
+                await adapter._sync_loop()
+
+        fake_client.sync.assert_awaited_once_with(timeout=30000)
+        adapter._run_e2ee_maintenance.assert_not_awaited()
+        sleep_mock.assert_awaited_once_with(5)
 
 
 class TestMatrixEncryptedSendFallback:
