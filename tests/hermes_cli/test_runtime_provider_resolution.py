@@ -532,7 +532,7 @@ def test_named_custom_provider_does_not_shadow_builtin_provider(monkeypatch):
                 {
                     "name": "nous",
                     "base_url": "http://localhost:1234/v1",
-                    "api_key": "shadow-key",
+                    "api_key": "nous-local-key",
                 }
             ]
         },
@@ -556,10 +556,36 @@ def test_named_custom_provider_does_not_shadow_builtin_provider(monkeypatch):
     assert resolved["requested_provider"] == "nous"
 
 
+def test_named_custom_provider_can_use_custom_alias_name(monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.setattr(
+        rp,
+        "load_config",
+        lambda: {
+            "custom_providers": [
+                {
+                    "name": "lmstudio",
+                    "base_url": "https://lmstudio.local/v1",
+                    "api_key": "lmstudio-key",
+                }
+            ]
+        },
+    )
+
+    resolved = rp.resolve_runtime_provider(requested="lmstudio")
+
+    assert resolved["provider"] == "custom"
+    assert resolved["base_url"] == "https://lmstudio.local/v1"
+    assert resolved["api_key"] == "lmstudio-key"
+    assert resolved["requested_provider"] == "lmstudio"
+    assert resolved["source"] == "custom_provider:lmstudio"
+
+
 def test_explicit_openrouter_skips_openai_base_url(monkeypatch):
     """When the user explicitly requests openrouter, OPENAI_BASE_URL
     (which may point to a custom endpoint) must not override the
-    OpenRouter base URL.  Regression test for #874."""
+    OpenRouter base URL. Regression test for #874."""
     monkeypatch.setattr(rp, "resolve_provider", lambda *a, **k: "openrouter")
     monkeypatch.setattr(rp, "_get_model_config", lambda: {})
     monkeypatch.setenv("OPENAI_BASE_URL", "https://my-custom-llm.example.com/v1")
