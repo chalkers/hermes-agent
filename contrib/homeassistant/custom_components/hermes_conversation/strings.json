@@ -1,0 +1,25 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Hermes Conversation",
+        "description": "Connect Home Assistant Assist to a local Hermes API server."
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the Hermes API server.",
+      "unknown": "Unexpected error. Check Home Assistant logs."
+    },
+    "abort": {
+      "already_configured": "This Hermes endpoint is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Hermes Conversation options",
+        "description": "Adjust how Home Assistant talks to Hermes."
+      }
+    }
+  }
+}
